@@ -10,6 +10,8 @@
   "restaurant",
   "restaurant_table",
   "token",
+  "tracking_token",
+  "display_order_no",
   "client_order_id",
   "sales_invoice",
   "column_break_14",
@@ -39,16 +41,30 @@
    "reqd": 1
   },
   {
-   "fieldname": "token",
-   "fieldtype": "Data",
-   "label": "Token"
+  "fieldname": "token",
+  "fieldtype": "Data",
+  "label": "Token"
+ },
+ {
+  "fieldname": "tracking_token",
+  "fieldtype": "Data",
+  "label": "Tracking Token",
+  "read_only": 1,
+  "unique": 1
   },
   {
-   "fieldname": "client_order_id",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Order ID",
-   "reqd": 1,
+  "fieldname": "display_order_no",
+  "fieldtype": "Data",
+  "in_list_view": 1,
+  "label": "Display Order No",
+  "read_only": 1
+  },
+  {
+  "fieldname": "client_order_id",
+  "fieldtype": "Data",
+  "in_list_view": 1,
+  "label": "Order ID",
+  "reqd": 1,
    "unique": 1
   },
   {

@@ -13,6 +13,58 @@ def _resp_ok(data=None, message="OK"):
 def _resp_fail(message="Failed", data=None):
     return {"status": "fail", "message": message, "data": data or {}}
 
+
+def _serialize_items(rows):
+    return [
+        {
+            "item_code": row.item,
+            "qty": float(row.qty or 0),
+            "rate": float(row.rate or 0),
+            "amount": float(row.amount or 0),
+            "notes": getattr(row, "item_notes", None),
+        }
+        for row in rows
+    ]
+
+
+def _serialize_status_log(rows):
+    return [
+        {
+            "from": row.from_status,
+            "to": row.status,
+            "changed_on": row.changed_on,
+            "changed_by": row.changed_by,
+            "note": getattr(row, "note", None),
+        }
+        for row in rows
+    ]
+
+
+def _build_order_payload(go):
+    table = frappe.get_doc("Restaurant Table", go.restaurant_table)
+    table_label = getattr(table, "table_identifier", None) or table.name
+
+    return {
+        "name": go.name,
+        "display_order_no": go.display_order_no,
+        "tracking_token": go.tracking_token,
+        "restaurant": go.restaurant,
+        "restaurant_table": go.restaurant_table,
+        "table_label": table_label,
+        "status": go.status,
+        "notes": go.notes,
+        "language": go.language,
+        "created_on": go.creation,
+        "items": _serialize_items(go.guest_order_items or []),
+        "status_log": _serialize_status_log(go.guest_order_status_log or []),
+        "total": sum(float(row.amount or 0) for row in (go.guest_order_items or [])),
+    }
+
+
+def _get_order_by_tracking(tracking_token: str):
+    name = frappe.get_value("Guest Order", {"tracking_token": tracking_token}, "name")
+    return frappe.get_doc("Guest Order", name) if name else None
+
 def _get_token_doc(token: str):
     return frappe.get_all(
         TABLE_QR_DOCTYPE,
@@ -115,7 +167,8 @@ def place_order(token: str, client_order_id: str, items: list, notes: str = None
     # Idempotency
     existing = frappe.get_value("Guest Order", {"client_order_id": client_order_id}, "name")
     if existing:
-        return _resp_ok({"order_number": existing}, "Already placed")
+        go = frappe.get_doc("Guest Order", existing)
+        return _resp_ok(_build_order_payload(go), "Already placed")
 
     t = _get_token_doc(token)
     if not t:
@@ -174,6 +227,7 @@ def place_order(token: str, client_order_id: str, items: list, notes: str = None
         ],
         "guest_order_status_log": [{
             "doctype": "Guest Order Status Log",
+            "from_status": None,
             "status": "Placed",
             "changed_on": now_datetime(),
             "changed_by": "Guest"
@@ -200,7 +254,70 @@ def place_order(token: str, client_order_id: str, items: list, notes: str = None
     go.sales_invoice = si.name
     go.save(ignore_permissions=True)
 
-    return _resp_ok({"order_number": go.name, "sales_invoice": si.name}, "Order placed")
+    go.reload()
+    return _resp_ok(_build_order_payload(go), "Order placed")
+
+
+@frappe.whitelist(allow_guest=True)
+def get_order(tracking_token: str = None, order_name: str = None):
+    """Return a guest-order summary for confirmation or tracking pages."""
+
+    go = None
+    if tracking_token:
+        go = _get_order_by_tracking(tracking_token)
+    elif order_name:
+        go = frappe.get_doc("Guest Order", order_name)
+
+    if not go:
+        return _resp_fail("Order not found")
+
+    return _resp_ok(_build_order_payload(go))
+
+
+ALLOWED_STATUSES = {"Placed", "Accepted", "Preparing", "Ready", "Served", "Cancelled"}
+LINEAR_TRANSITIONS = {
+    "Placed": {"Accepted"},
+    "Accepted": {"Preparing"},
+    "Preparing": {"Ready"},
+    "Ready": {"Served"},
+}
+
+
+@frappe.whitelist()
+def update_order_status(order_name: str, status: str, note: str | None = None):
+    """Update an order status and append the audit trail."""
+
+    if not status or status not in ALLOWED_STATUSES:
+        return _resp_fail("Invalid status")
+
+    go = frappe.get_doc("Guest Order", order_name)
+    previous = go.status
+
+    if previous == status:
+        return _resp_ok(_build_order_payload(go), "No status change")
+
+    if status != "Cancelled":
+        allowed_next = LINEAR_TRANSITIONS.get(previous, set())
+        if status not in allowed_next:
+            return _resp_fail("Transition not allowed")
+
+    go.append(
+        "guest_order_status_log",
+        {
+            "doctype": "Guest Order Status Log",
+            "from_status": previous,
+            "status": status,
+            "changed_on": now_datetime(),
+            "changed_by": frappe.session.user,
+            "note": note,
+        },
+    )
+
+    go.status = status
+    go.save(ignore_permissions=True)
+    go.reload()
+
+    return _resp_ok(_build_order_payload(go), "Status updated")
 
 @frappe.whitelist()
 def generate_table_qr(restaurant: str, restaurant_table: str):

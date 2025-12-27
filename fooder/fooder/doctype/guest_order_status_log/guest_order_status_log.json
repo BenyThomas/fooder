@@ -6,11 +6,19 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "from_status",
   "status",
   "changed_on",
-  "changed_by"
+  "changed_by",
+  "note"
  ],
  "fields": [
+  {
+   "fieldname": "from_status",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "From"
+  },
   {
    "fieldname": "status",
    "fieldtype": "Data",
@@ -29,6 +37,11 @@
    "in_list_view": 1,
    "label": "Changed By",
    "options": "User"
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Note"
   }
  ],
  "index_web_pages_for_search": 1,
