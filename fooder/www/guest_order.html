@@ -4,26 +4,30 @@
 <div class="container" style="max-width: 720px;">
   <h3 id="title">Menu</h3>
 
-  <div style="margin-bottom: 12px;">
-    <button class="btn btn-default" onclick="setLang('en')">English</button>
-    <button class="btn btn-default" onclick="setLang('sw')">Swahili</button>
+  <div id="confirmation" style="display:none; margin-bottom:16px;"></div>
+
+  <div id="order-form">
+    <div style="margin-bottom: 12px;">
+      <button class="btn btn-default" onclick="setLang('en')">English</button>
+      <button class="btn btn-default" onclick="setLang('sw')">Swahili</button>
+    </div>
+
+    <div id="menu"></div>
+
+    <hr/>
+    <h4>Cart</h4>
+    <div id="cart"></div>
+
+    <div style="margin-top: 10px;">
+      <textarea id="notes" class="form-control" placeholder="Notes (e.g., no onions)"></textarea>
+    </div>
+
+    <div style="margin-top: 10px;">
+      <button class="btn btn-primary" onclick="placeOrder()">Place Order</button>
+    </div>
+
+    <div id="result" style="margin-top: 12px;"></div>
   </div>
-
-  <div id="menu"></div>
-
-  <hr/>
-  <h4>Cart</h4>
-  <div id="cart"></div>
-
-  <div style="margin-top: 10px;">
-    <textarea id="notes" class="form-control" placeholder="Notes (e.g., no onions)"></textarea>
-  </div>
-
-  <div style="margin-top: 10px;">
-    <button class="btn btn-primary" onclick="placeOrder()">Place Order</button>
-  </div>
-
-  <div id="result" style="margin-top: 12px;"></div>
 </div>
 
 <script>
@@ -31,11 +35,25 @@ const TOKEN = "{{ token }}";
 let LANG = localStorage.getItem("guest_lang") || "en";
 let MENU = [];
 let CART = {};
+let CURRENT_ORDER = null;
+const STORAGE_KEY = `guest_order_${TOKEN}_last`;
 
 function setLang(lang){
   LANG = lang;
   localStorage.setItem("guest_lang", lang);
   loadMenu();
+}
+
+function getSavedOrder(){
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveOrder(data){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data || {}));
 }
 
 function money(n){ return (Number(n||0)).toFixed(2); }
@@ -112,6 +130,53 @@ function chg(item_code, delta){
   renderCart();
 }
 
+function formatDate(value){
+  try {
+    return new Date(value).toLocaleString();
+  } catch (e) {
+    return value;
+  }
+}
+
+function renderConfirmation(order){
+  CURRENT_ORDER = order;
+  const orderForm = document.getElementById("order-form");
+  const confirmation = document.getElementById("confirmation");
+  const hasTotal = order.total !== undefined && order.total !== null;
+
+  const items = (order.items || []).map(it => `
+    <div style="display:flex;justify-content:space-between;margin:4px 0;">
+      <div>${it.item_code}${it.notes ? ` - ${it.notes}` : ""}</div>
+      <div>Qty: ${it.qty}</div>
+    </div>
+  `).join("") || "<div>No items</div>";
+
+  confirmation.innerHTML = `
+    <div class="panel panel-success">
+      <div class="panel-heading" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div>
+          <div style="font-size:16px;font-weight:700;">Order Confirmation</div>
+          <div style="opacity:.8;">Order #${order.order_number}</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openTracking()">Track Order</button>
+      </div>
+      <div class="panel-body">
+        <div><strong>Restaurant:</strong> ${order.restaurant}</div>
+        <div><strong>Table:</strong> ${order.table_label || order.restaurant_table}</div>
+        <div><strong>Created:</strong> ${formatDate(order.created_on)}</div>
+        <div><strong>Notes:</strong> ${order.notes || "None"}</div>
+        <hr/>
+        <div><strong>Items</strong></div>
+        ${items}
+        ${hasTotal ? `<div style="font-weight:700;margin-top:8px;">Total: ${money(order.total)}</div>` : ""}
+      </div>
+    </div>
+  `;
+
+  confirmation.style.display = "block";
+  if(orderForm){ orderForm.style.display = "none"; }
+}
+
 async function loadMenu(){
   const res = await call("fooder.fooder.api.get_menu", { token: TOKEN, lang: LANG });
   if(res.message?.status !== "success"){
@@ -130,8 +195,12 @@ async function placeOrder(){
     document.getElementById("result").innerHTML = `<div class="alert alert-info">Cart is empty</div>`;
     return;
   }
-  const client_order_id = (crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
+  const saved = getSavedOrder() || {};
+  const client_order_id = saved.client_order_id || (crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
   const notes = document.getElementById("notes").value;
+
+  // Persist client_order_id to avoid duplicate submissions on refresh
+  saveOrder({ client_order_id });
 
   const res = await call("fooder.fooder.api.place_order", {
     token: TOKEN, lang: LANG, client_order_id, notes, items
@@ -140,14 +209,31 @@ async function placeOrder(){
   if(res.message?.status === "success"){
     CART = {};
     renderCart();
-    document.getElementById("result").innerHTML =
-      `<div class="alert alert-success">Order placed: <b>${res.message.data.order_number || res.message.data.display_order_no}</b><br/>Tracking: <b>${res.message.data.tracking_code || res.message.data.tracking_token}</b></div>`;
+    saveOrder({ client_order_id, tracking_token: res.message.data.tracking_token });
+    renderConfirmation(res.message.data);
   } else {
     document.getElementById("result").innerHTML =
       `<div class="alert alert-danger">${res.message?.message || "Failed to place order"}</div>`;
   }
 }
 
-loadMenu();
+async function resumeOrder(){
+  const saved = getSavedOrder();
+  if(saved?.tracking_token){
+    const res = await call("fooder.fooder.api.get_order", { tracking_token: saved.tracking_token });
+    if(res.message?.status === "success"){
+      renderConfirmation(res.message.data);
+      return;
+    }
+  }
+  loadMenu();
+}
+
+function openTracking(){
+  if(!CURRENT_ORDER) return;
+  window.location.href = `/track_order?tracking_token=${encodeURIComponent(CURRENT_ORDER.tracking_token)}`;
+}
+
+resumeOrder();
 </script>
 {% endblock %}
