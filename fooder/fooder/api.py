@@ -1,7 +1,11 @@
-import secrets
 import frappe
 from frappe import _
 from frappe.utils import now_datetime
+from fooder.integrations.restaurant_table_events import (
+    TABLE_QR_DOCTYPE,
+    _create_qr_token,
+    _disable_active_tokens,
+)
 
 def _resp_ok(data=None, message="OK"):
     return {"status": "success", "message": message, "data": data or {}}
@@ -11,7 +15,7 @@ def _resp_fail(message="Failed", data=None):
 
 def _get_token_doc(token: str):
     return frappe.get_all(
-        "Table QR Token",
+        TABLE_QR_DOCTYPE,
         filters={"token": token},
         fields=["name", "restaurant", "restaurant_table", "is_enabled", "qr_url"]
     )
@@ -187,28 +191,14 @@ def place_order(token: str, client_order_id: str, items: list, notes: str = None
 
 @frappe.whitelist()
 def generate_table_qr(restaurant: str, restaurant_table: str):
-    token = secrets.token_urlsafe(24)
-    qr_url = f"{frappe.utils.get_url()}/fooder/{token}"
-
-    doc = frappe.get_doc({
-        "doctype": "QR token",
-        "restaurant": restaurant,
-        "restaurant_table": restaurant_table,
-        "token": token,
-        "is_enabled": 1,
-        "qr_url": qr_url,
-        "last_generated_on": now_datetime()
-    })
-    doc.insert()
-
-    # For demo: store URL; optionally generate image later
-    return _resp_ok({"token": token, "qr_url": qr_url, "docname": doc.name}, "QR generated")
+    doc = _create_qr_token(restaurant, restaurant_table)
+    return _resp_ok({"token": doc["token"], "qr_url": doc["qr_url"], "docname": doc["name"]}, "QR generated")
 
 @frappe.whitelist()
 def disable_table_qr(token_docname: str):
-    doc = frappe.get_doc("Table QR Token", token_docname)
-    doc.is_enabled = 0
-    doc.save()
+    doc = frappe.get_doc(TABLE_QR_DOCTYPE, token_docname)
+    _disable_active_tokens(doc.restaurant_table)
+    frappe.db.set_value(TABLE_QR_DOCTYPE, doc.name, "is_enabled", 0)
     return _resp_ok({}, "QR disabled")
 
 

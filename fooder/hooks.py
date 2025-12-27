@@ -221,8 +221,8 @@ doctype_js = {
 doc_events = {
     "Restaurant Table": {
         # generate QR after the table is created/saved
-        "after_insert": "guest_ordering.integrations.restaurant_table_events.ensure_qr_after_save",
-        "on_update": "guest_ordering.integrations.restaurant_table_events.ensure_qr_after_save",
+        "after_insert": "fooder.integrations.restaurant_table_events.ensure_qr_after_save",
+        "on_update": "fooder.integrations.restaurant_table_events.ensure_qr_after_save",
     }
 }
 # guest_ordering/hooks.py
