@@ -45,20 +45,16 @@ def execute():
         if shortcut_meta.has_field("label"):
             shortcut_row["label"] = "Kitchen Orders"
         if shortcut_meta.has_field("type"):
-            shortcut_row["type"] = "URL"
-        if shortcut_meta.has_field("link_type"):
-            shortcut_row["link_type"] = "URL"
+            shortcut_row["type"] = "Link"
         if shortcut_meta.has_field("link_to"):
             shortcut_row["link_to"] = "/kitchen"
         if shortcut_meta.has_field("description"):
             shortcut_row["description"] = "Monitor guest orders from the Fooder kitchen screen."
+        if shortcut_meta.has_field("color"):
+            shortcut_row["color"] = "Green"
+        if shortcut_meta.has_field("icon"):
+            shortcut_row["icon"] = "link"
         if shortcut_row:
             workspace.append("shortcuts", shortcut_row)
 
-    # In some versions, the shortcut's dynamic link validation expects a DocType named
-    # after the provided link_type ("URL" in our case). That DocType might not exist in
-    # older site states, which would cause the migration to fail. Ignore link validation
-    # so the workspace can be created regardless of DocType availability.
-    workspace.insert(
-        ignore_permissions=True, ignore_if_duplicate=True, ignore_links=True
-    )
+    workspace.insert(ignore_permissions=True, ignore_if_duplicate=True)
