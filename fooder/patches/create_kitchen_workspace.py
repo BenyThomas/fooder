@@ -55,4 +55,10 @@ def execute():
         if shortcut_row:
             workspace.append("shortcuts", shortcut_row)
 
-    workspace.insert(ignore_permissions=True, ignore_if_duplicate=True)
+    # In some versions, the shortcut's dynamic link validation expects a DocType named
+    # after the provided link_type ("URL" in our case). That DocType might not exist in
+    # older site states, which would cause the migration to fail. Ignore link validation
+    # so the workspace can be created regardless of DocType availability.
+    workspace.insert(
+        ignore_permissions=True, ignore_if_duplicate=True, ignore_links=True
+    )
