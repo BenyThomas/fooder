@@ -20,6 +20,27 @@ def _get_token_doc(token: str):
         fields=["name", "restaurant", "restaurant_table", "is_enabled", "qr_url"]
     )
 
+
+def _get_active_menu_name(restaurant: str):
+    """Return the active menu for a restaurant while tolerating missing fields.
+
+    Some deployments use a custom ``is_active`` flag, others use ``active``, and
+    older databases might not have either. Check which fields actually exist
+    before filtering to avoid ``Unknown column`` SQL errors and fall back to the
+    first menu for the restaurant when none of the flags are present.
+    """
+
+    meta = frappe.get_meta("Restaurant Menu")
+    active_fields = [f for f in ("is_active", "active") if meta.has_field(f)]
+
+    for f in active_fields:
+        name = frappe.get_value("Restaurant Menu", {"restaurant": restaurant, f: 1}, "name")
+        if name:
+            return name
+
+    # Fallback: any menu for the restaurant
+    return frappe.get_value("Restaurant Menu", {"restaurant": restaurant}, "name")
+
 @frappe.whitelist(allow_guest=True)
 def get_menu(token: str, lang: str = "en"):
     if not token:
@@ -38,11 +59,7 @@ def get_menu(token: str, lang: str = "en"):
         return _resp_fail("Table unavailable")
 
     # Find active menu for the restaurant (field name may differ; handle both)
-    menu_name = None
-    for f in ("is_active", "active"):
-        menu_name = frappe.get_value("Restaurant Menu", {"restaurant": t["restaurant"], f: 1}, "name")
-        if menu_name:
-            break
+    menu_name = _get_active_menu_name(t["restaurant"])
     if not menu_name:
         return _resp_fail("No active menu found")
 
@@ -108,11 +125,7 @@ def place_order(token: str, client_order_id: str, items: list, notes: str = None
         return _resp_fail("Table unavailable")
 
     # Active menu (same logic as get_menu)
-    menu_name = None
-    for f in ("is_active", "active"):
-        menu_name = frappe.get_value("Restaurant Menu", {"restaurant": t["restaurant"], f: 1}, "name")
-        if menu_name:
-            break
+    menu_name = _get_active_menu_name(t["restaurant"])
     if not menu_name:
         return _resp_fail("No active menu found")
 
