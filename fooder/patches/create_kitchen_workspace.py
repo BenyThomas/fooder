@@ -38,7 +38,7 @@ def execute():
     if workspace_meta.has_field("parent_page"):
         workspace.parent_page = "Modules"
     if workspace_meta.has_field("is_default"):
-        workspace.is_default = 0
+        workspace.is_default = 1
 
     if shortcut_meta:
         shortcut_row = {}
