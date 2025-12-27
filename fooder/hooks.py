@@ -227,6 +227,6 @@ doc_events = {
 }
 # guest_ordering/hooks.py
 website_route_rules = [
-    {"from_route": "/fooder/<token>", "to_route": "order"},
+    {"from_route": "/fooder/<token>", "to_route": "guest_order"},
 ]
 
