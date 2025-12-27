@@ -113,7 +113,7 @@ function chg(item_code, delta){
 }
 
 async function loadMenu(){
-  const res = await call("guest_ordering.api.get_menu", { token: TOKEN, lang: LANG });
+  const res = await call("fooder.fooder.api.get_menu", { token: TOKEN, lang: LANG });
   if(res.message?.status !== "success"){
     document.getElementById("menu").innerHTML = `<div class="alert alert-warning">${res.message?.message || "Failed to load menu"}</div>`;
     return;
@@ -133,7 +133,7 @@ async function placeOrder(){
   const client_order_id = (crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
   const notes = document.getElementById("notes").value;
 
-  const res = await call("guest_ordering.api.place_order", {
+  const res = await call("fooder.fooder.api.place_order", {
     token: TOKEN, lang: LANG, client_order_id, notes, items
   });
 

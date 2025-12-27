@@ -31,7 +31,7 @@ def _get_active_menu_name(restaurant: str):
     """
 
     meta = frappe.get_meta("Restaurant Menu")
-    active_fields = [f for f in ("is_active", "active") if meta.has_field(f)]
+    active_fields = [f for f in ("is_active", "active","enabled") if meta.has_field(f)]
 
     for f in active_fields:
         name = frappe.get_value("Restaurant Menu", {"restaurant": restaurant, f: 1}, "name")
