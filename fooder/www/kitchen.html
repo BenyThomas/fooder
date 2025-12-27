@@ -1,0 +1,138 @@
+{% extends "templates/web.html" %}
+
+{% block page_content %}
+<div class="container" style="max-width: 1040px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h3 style="margin:0;">Kitchen Orders</h3>
+      <div style="opacity:.8;">Incoming orders in time order</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <div class="btn-group" role="group" aria-label="Status filters">
+        <button class="btn btn-default" data-status="Placed" onclick="setStatusFilter('Placed')">Placed</button>
+        <button class="btn btn-default" data-status="Accepted" onclick="setStatusFilter('Accepted')">Accepted</button>
+        <button class="btn btn-default" data-status="Preparing" onclick="setStatusFilter('Preparing')">Preparing</button>
+        <button class="btn btn-default" data-status="Ready" onclick="setStatusFilter('Ready')">Ready</button>
+      </div>
+      <button class="btn btn-default" onclick="refreshOrders()">Refresh</button>
+    </div>
+  </div>
+
+  <div id="orders" style="margin-top:16px;">Loading...</div>
+</div>
+
+<script>
+const STATUS_COLORS = {
+  Placed: 'label-default',
+  Accepted: 'label-info',
+  Preparing: 'label-primary',
+  Ready: 'label-success',
+  Served: 'label-default',
+  Cancelled: 'label-danger',
+};
+
+let currentStatus = 'Placed';
+let refreshTimer = null;
+
+function setStatusFilter(status){
+  currentStatus = status;
+  updateActiveFilter();
+  refreshOrders();
+}
+
+function updateActiveFilter(){
+  document.querySelectorAll('[data-status]').forEach(btn => {
+    if(btn.getAttribute('data-status') === currentStatus){
+      btn.classList.remove('btn-default');
+      btn.classList.add('btn-primary');
+    } else {
+      btn.classList.add('btn-default');
+      btn.classList.remove('btn-primary');
+    }
+  });
+}
+
+function timeSince(iso){
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return 'Unknown';
+  const diff = Math.max(0, Date.now() - d.getTime());
+  const mins = Math.floor(diff / 60000);
+  if(mins < 1) return 'Just now';
+  if(mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
+  const hrs = Math.floor(mins / 60);
+  if(hrs < 24) return `${hrs} hr${hrs === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
+async function call(method, args){
+  const r = await fetch('/api/method/' + method, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(args || {})
+  });
+  return await r.json();
+}
+
+function renderOrders(orders){
+  const wrap = document.getElementById('orders');
+  if(!orders || !orders.length){
+    wrap.innerHTML = `<div class="alert alert-info">No orders found.</div>`;
+    return;
+  }
+
+  wrap.innerHTML = orders.map(order => {
+    const badge = STATUS_COLORS[order.status] || 'label-default';
+    const notes = order.notes ? `<div style="margin-top:6px;"><strong>Notes:</strong> ${order.notes}</div>` : '';
+    const items = (order.items || []).map(it => `
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px dashed #eee;">
+        <div>
+          <div style="font-weight:600;">${it.item_code}</div>
+          ${it.notes ? `<div style="opacity:.8;">${it.notes}</div>` : ''}
+        </div>
+        <div style="font-weight:600;">x${it.qty}</div>
+      </div>
+    `).join('') || '<div>No items</div>';
+
+    return `
+      <div class="panel panel-default" style="margin-bottom:12px;">
+        <div class="panel-heading" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:16px;font-weight:700;">Order #${order.display_order_no}</div>
+            <div style="opacity:.8;">Table ${order.table_label || order.restaurant_table}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="label ${badge}">${order.status}</span>
+            <span style="opacity:.8;">${timeSince(order.created_on)}</span>
+            <a class="btn btn-default btn-sm" href="/track_order?tracking_token=${order.tracking_code}">Open Order</a>
+          </div>
+        </div>
+        <div class="panel-body">
+          ${notes}
+          <div><strong>Items</strong></div>
+          ${items}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function refreshOrders(){
+  const res = await call('fooder.fooder.api.get_kitchen_orders', { status: currentStatus });
+  if(res.message?.status === 'success'){
+    renderOrders(res.message.data.orders || []);
+  } else {
+    document.getElementById('orders').innerHTML = `<div class="alert alert-warning">${res.message?.message || 'Failed to load orders'}</div>`;
+  }
+}
+
+function startPolling(){
+  if(refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(refreshOrders, 15000);
+}
+
+updateActiveFilter();
+refreshOrders();
+startPolling();
+</script>
+{% endblock %}

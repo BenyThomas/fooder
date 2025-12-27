@@ -336,3 +336,49 @@ def disable_table_qr(token_docname: str):
     return _resp_ok({}, "QR disabled")
 
 
+@frappe.whitelist()
+def get_kitchen_orders(status: str | None = None, restaurant: str | None = None, limit: int = 50):
+    """Return a list of guest orders for the kitchen screen.
+
+    Orders are returned in reverse creation order (newest first) and can be
+    filtered by status and restaurant to help kitchen staff focus on the
+    relevant queue.
+    """
+
+    try:
+        limit = max(1, min(int(limit or 50), 200))
+    except (TypeError, ValueError):
+        limit = 50
+
+    filters = {}
+
+    if status:
+        # Support comma-separated values from the client
+        raw_status = [s.strip() for s in status.split(",") if s.strip()]
+        selected = [s for s in raw_status if s in ALLOWED_STATUSES]
+        if not selected:
+            return _resp_fail("Invalid status filter")
+        filters["status"] = ["in", selected]
+    else:
+        # Default to active kitchen states
+        filters["status"] = ["in", ["Placed", "Accepted", "Preparing", "Ready"]]
+
+    if restaurant:
+        filters["restaurant"] = restaurant
+
+    records = frappe.get_all(
+        "Guest Order",
+        filters=filters,
+        fields=["name"],
+        order_by="creation desc",
+        limit=limit,
+    )
+
+    orders = []
+    for row in records:
+        go = frappe.get_doc("Guest Order", row.name)
+        orders.append(_build_order_payload(go))
+
+    return _resp_ok({"orders": orders})
+
+
