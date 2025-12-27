@@ -1,0 +1,99 @@
+{% extends "templates/web.html" %}
+
+{% block page_content %}
+<div class="container" style="max-width: 760px;">
+  <h3>Track Order</h3>
+  <div id="content" class="well">Loading...</div>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const TRACKING_TOKEN = params.get("tracking_token");
+let ORDER = null;
+
+function money(n){ return (Number(n||0)).toFixed(2); }
+
+async function call(method, args){
+  const r = await fetch("/api/method/" + method, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(args || {})
+  });
+  return await r.json();
+}
+
+function formatDate(value){
+  try {
+    return new Date(value).toLocaleString();
+  } catch (e) {
+    return value;
+  }
+}
+
+function render(order){
+  ORDER = order;
+  const content = document.getElementById("content");
+  const hasTotal = order && order.total !== undefined && order.total !== null;
+  if(!order){
+    content.innerHTML = `<div class="alert alert-warning">Order not found.</div>`;
+    return;
+  }
+
+  const items = (order.items || []).map(it => `
+    <div style="display:flex;justify-content:space-between;margin:4px 0;">
+      <div>${it.item_code}${it.notes ? ` - ${it.notes}` : ""}</div>
+      <div>Qty: ${it.qty}</div>
+    </div>
+  `).join("") || "<div>No items</div>";
+
+  const statusLog = (order.status_log || []).map(row => `
+    <div style="padding:6px 0;border-bottom:1px solid #eee;">
+      <div style="font-weight:600;">${row.to}</div>
+      <div style="opacity:.8;">${formatDate(row.changed_on)}</div>
+      ${row.note ? `<div>${row.note}</div>` : ""}
+    </div>
+  `).join("") || "<div>No updates yet.</div>";
+
+  content.innerHTML = `
+    <div class="panel panel-default">
+      <div class="panel-heading" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div>
+          <div style="font-size:16px;font-weight:700;">Order #${order.order_number}</div>
+          <div style="opacity:.8;">Tracking ${order.tracking_code}</div>
+        </div>
+        <button class="btn btn-default btn-sm" onclick="refreshOrder()">Refresh</button>
+      </div>
+      <div class="panel-body">
+        <div><strong>Status:</strong> ${order.status}</div>
+        <div><strong>Restaurant:</strong> ${order.restaurant}</div>
+        <div><strong>Table:</strong> ${order.table_label || order.restaurant_table}</div>
+        <div><strong>Created:</strong> ${formatDate(order.created_on)}</div>
+        <div><strong>Notes:</strong> ${order.notes || "None"}</div>
+        ${hasTotal ? `<div style="margin-top:8px;font-weight:700;">Total: ${money(order.total)}</div>` : ""}
+        <hr/>
+        <div><strong>Items</strong></div>
+        ${items}
+        <hr/>
+        <div><strong>Updates</strong></div>
+        ${statusLog}
+      </div>
+    </div>
+  `;
+}
+
+async function refreshOrder(){
+  if(!TRACKING_TOKEN){
+    document.getElementById("content").innerHTML = `<div class="alert alert-info">Missing tracking token.</div>`;
+    return;
+  }
+  const res = await call("fooder.fooder.api.get_order", { tracking_token: TRACKING_TOKEN });
+  if(res.message?.status === "success"){
+    render(res.message.data);
+  } else {
+    render(null);
+  }
+}
+
+refreshOrder();
+</script>
+{% endblock %}
