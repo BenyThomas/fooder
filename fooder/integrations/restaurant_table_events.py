@@ -17,7 +17,10 @@ def _generate_unique_token() -> str:
 
 
 def _build_qr_url(token: str) -> str:
-    return f"{get_url()}/fooder/{token}"
+    # Point the QR directly to the public guest ordering page with the token prefilled
+    # so visitors land on a valid route. Previously this pointed to `/fooder/<token>`
+    # which isn't a real page and resulted in a 500 error from an unrelated order view.
+    return f"{get_url()}/guest_order?token={token}"
 
 
 def _get_active_token_for_table(restaurant_table: str) -> Optional[Dict]:
