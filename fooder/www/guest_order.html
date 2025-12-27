@@ -141,7 +141,7 @@ async function placeOrder(){
     CART = {};
     renderCart();
     document.getElementById("result").innerHTML =
-      `<div class="alert alert-success">Order placed: <b>${res.message.data.order_number}</b></div>`;
+      `<div class="alert alert-success">Order placed: <b>${res.message.data.order_number || res.message.data.display_order_no}</b><br/>Tracking: <b>${res.message.data.tracking_code || res.message.data.tracking_token}</b></div>`;
   } else {
     document.getElementById("result").innerHTML =
       `<div class="alert alert-danger">${res.message?.message || "Failed to place order"}</div>`;

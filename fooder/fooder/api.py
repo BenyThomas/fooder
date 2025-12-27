@@ -47,7 +47,9 @@ def _build_order_payload(go):
     return {
         "name": go.name,
         "display_order_no": go.display_order_no,
+        "order_number": go.display_order_no,
         "tracking_token": go.tracking_token,
+        "tracking_code": go.tracking_token,
         "restaurant": go.restaurant,
         "restaurant_table": go.restaurant_table,
         "table_label": table_label,
