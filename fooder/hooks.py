@@ -49,6 +49,11 @@ app_license = "ztl"
 # automatically create page for each record of this doctype
 # website_generators = ["Web Page"]
 
+# Friendly tracking URLs
+website_route_rules = [
+    {"from_route": "/track/<tracking_token>", "to_route": "track_order"},
+]
+
 # Jinja
 # ----------
 

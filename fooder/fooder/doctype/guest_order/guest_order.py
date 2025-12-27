@@ -52,3 +52,22 @@ class GuestOrder(Document):
             self.display_order_no = generate_display_order_no(
                 self.restaurant, self.restaurant_table
             )
+
+    def before_save(self):
+        """Append a status log entry when the status changes."""
+
+        if self.is_new() or getattr(self.flags, "skip_status_log", False):
+            return
+
+        previous = self.get_doc_before_save()
+        if previous and previous.status != self.status:
+            self.append(
+                "guest_order_status_log",
+                {
+                    "doctype": "Guest Order Status Log",
+                    "from_status": previous.status,
+                    "status": self.status,
+                    "changed_on": now_datetime(),
+                    "changed_by": frappe.session.user,
+                },
+            )

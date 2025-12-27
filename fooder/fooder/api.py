@@ -315,6 +315,8 @@ def update_order_status(order_name: str, status: str, note: str | None = None):
         },
     )
 
+    # Avoid duplicate logging from DocType hooks
+    go.flags.skip_status_log = True
     go.status = status
     go.save(ignore_permissions=True)
     go.reload()
