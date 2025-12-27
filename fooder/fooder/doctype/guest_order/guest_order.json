@@ -17,7 +17,7 @@
   "notes",
   "status",
   "item_section_break",
-  "guest_order_item",
+  "guest_order_items",
   "status_section",
   "guest_order_status_log"
  ],
@@ -70,19 +70,13 @@
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "status",
-   "options": "Placed, Accepted, Preparing, Ready, Served, Cancelled, Settled"
+   "options": "Placed\nAccepted\nPreparing\nReady\nServed\nCancelled\nSettled"
   },
   {
    "fieldname": "sales_invoice",
    "fieldtype": "Link",
    "label": "Invoice",
    "options": "Sales Invoice"
-  },
-  {
-   "fieldname": "guest_order_item",
-   "fieldtype": "Table",
-   "label": "Items",
-   "options": "Guest Order Item"
   },
   {
    "collapsible": 1,
@@ -98,11 +92,17 @@
   {
    "fieldname": "item_section_break",
    "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "guest_order_items",
+   "fieldtype": "Table",
+   "label": "Items",
+   "options": "Guest Order Item"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-12-27 13:23:45.119210",
+ "modified": "2025-12-27 20:13:49.589394",
  "modified_by": "Administrator",
  "module": "Fooder",
  "name": "Guest Order",

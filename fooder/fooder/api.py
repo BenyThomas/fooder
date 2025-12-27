@@ -168,11 +168,11 @@ def place_order(token: str, client_order_id: str, items: list, notes: str = None
         "language": (lang or "en").lower(),
         "notes": notes,
         "status": "Placed",
-        "items": [
+        "guest_order_items": [
             {"doctype": "Guest Order Item", "item": l["item"], "qty": l["qty"], "rate": l["rate"], "amount": l["amount"]}
             for l in lines
         ],
-        "status_log": [{
+        "guest_order_status_log": [{
             "doctype": "Guest Order Status Log",
             "status": "Placed",
             "changed_on": now_datetime(),
