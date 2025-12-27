@@ -231,7 +231,7 @@ async function resumeOrder(){
 
 function openTracking(){
   if(!CURRENT_ORDER) return;
-  window.location.href = `/track_order?tracking_token=${encodeURIComponent(CURRENT_ORDER.tracking_token)}`;
+  window.location.href = `/track/${encodeURIComponent(CURRENT_ORDER.tracking_token)}`;
 }
 
 resumeOrder();

@@ -8,8 +8,11 @@
 
 <script>
 const params = new URLSearchParams(window.location.search);
-const TRACKING_TOKEN = params.get("tracking_token");
+const CONTEXT_TOKEN = "{{ tracking_token or '' }}";
+const TRACKING_TOKEN = CONTEXT_TOKEN || params.get("tracking_token");
+const POLL_MS = ({{ polling_seconds }} || 10) * 1000;
 let ORDER = null;
+let pollTimer = null;
 
 function money(n){ return (Number(n||0)).toFixed(2); }
 
@@ -28,6 +31,36 @@ function formatDate(value){
   } catch (e) {
     return value;
   }
+}
+
+function renderTimeline(order) {
+  const log = order.status_log || [];
+  const logMap = log.reduce((acc, row) => {
+    if (!acc[row.to]) acc[row.to] = row;
+    return acc;
+  }, {});
+
+  const statuses = ["Placed", "Accepted", "Preparing", "Ready", "Served"];
+  if ((order.status === "Cancelled" || logMap["Cancelled"]) && !statuses.includes("Cancelled")) {
+    statuses.push("Cancelled");
+  }
+
+  return statuses.map((status, idx) => {
+    const row = logMap[status];
+    const isActive = order.status === status;
+    const isComplete = Boolean(row) || statuses.indexOf(order.status) > idx;
+    const badgeClass = status === "Cancelled" ? "label-danger" : isActive ? "label-primary" : "label-default";
+
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #eee;">
+        <div>
+          <span class="label ${badgeClass}" style="margin-right:6px;">${status}</span>
+          ${row ? `<span style="opacity:.85;">${formatDate(row.changed_on)}</span>` : `<span style="opacity:.6;">Pending</span>`}
+        </div>
+        ${isActive ? `<span style="font-weight:600;">Current</span>` : isComplete ? `<span style="opacity:.6;">Done</span>` : ""}
+      </div>
+    `;
+  }).join("");
 }
 
 function render(order){
@@ -71,6 +104,9 @@ function render(order){
         <div><strong>Notes:</strong> ${order.notes || "None"}</div>
         ${hasTotal ? `<div style="margin-top:8px;font-weight:700;">Total: ${money(order.total)}</div>` : ""}
         <hr/>
+        <div><strong>Status timeline</strong></div>
+        ${renderTimeline(order)}
+        <hr/>
         <div><strong>Items</strong></div>
         ${items}
         <hr/>
@@ -94,6 +130,13 @@ async function refreshOrder(){
   }
 }
 
+function startPolling(){
+  if(pollTimer){ clearInterval(pollTimer); }
+  if(!TRACKING_TOKEN) return;
+  pollTimer = setInterval(refreshOrder, POLL_MS);
+}
+
 refreshOrder();
+startPolling();
 </script>
 {% endblock %}
