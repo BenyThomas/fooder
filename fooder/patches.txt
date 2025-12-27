@@ -1,1 +1,2 @@
 fooder.patches.create_kitchen_workspace
+fooder.patches.fix_kitchen_workspace_shortcut
