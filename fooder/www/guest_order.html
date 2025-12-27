@@ -1,0 +1,153 @@
+{% extends "templates/web.html" %}
+
+{% block page_content %}
+<div class="container" style="max-width: 720px;">
+  <h3 id="title">Menu</h3>
+
+  <div style="margin-bottom: 12px;">
+    <button class="btn btn-default" onclick="setLang('en')">English</button>
+    <button class="btn btn-default" onclick="setLang('sw')">Swahili</button>
+  </div>
+
+  <div id="menu"></div>
+
+  <hr/>
+  <h4>Cart</h4>
+  <div id="cart"></div>
+
+  <div style="margin-top: 10px;">
+    <textarea id="notes" class="form-control" placeholder="Notes (e.g., no onions)"></textarea>
+  </div>
+
+  <div style="margin-top: 10px;">
+    <button class="btn btn-primary" onclick="placeOrder()">Place Order</button>
+  </div>
+
+  <div id="result" style="margin-top: 12px;"></div>
+</div>
+
+<script>
+const TOKEN = "{{ token }}";
+let LANG = localStorage.getItem("guest_lang") || "en";
+let MENU = [];
+let CART = {};
+
+function setLang(lang){
+  LANG = lang;
+  localStorage.setItem("guest_lang", lang);
+  loadMenu();
+}
+
+function money(n){ return (Number(n||0)).toFixed(2); }
+
+async function call(method, args){
+  const r = await fetch("/api/method/" + method, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(args || {})
+  });
+  return await r.json();
+}
+
+function renderMenu(){
+  const el = document.getElementById("menu");
+  el.innerHTML = "";
+  MENU.forEach(row => {
+    const wrap = document.createElement("div");
+    wrap.style.border = "1px solid #eee";
+    wrap.style.padding = "10px";
+    wrap.style.marginBottom = "8px";
+
+    wrap.innerHTML = `
+      <div style="display:flex;justify-content:space-between;gap:10px;">
+        <div>
+          <div style="font-weight:600;">${row.display_name}</div>
+          <div style="opacity:.8;">${row.description || ""}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-weight:600;">${money(row.rate)}</div>
+          <button class="btn btn-sm btn-default" onclick="addToCart('${row.item_code}')">Add</button>
+        </div>
+      </div>
+    `;
+    el.appendChild(wrap);
+  });
+}
+
+function renderCart(){
+  const el = document.getElementById("cart");
+  const items = Object.values(CART);
+  if(!items.length){ el.innerHTML = "<div>Cart is empty</div>"; return; }
+
+  let total = 0;
+  el.innerHTML = items.map(it => {
+    total += it.qty * it.rate;
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0;">
+        <div>${it.name}</div>
+        <div>
+          <button class="btn btn-xs btn-default" onclick="chg('${it.item_code}',-1)">-</button>
+          <span style="padding:0 10px;">${it.qty}</span>
+          <button class="btn btn-xs btn-default" onclick="chg('${it.item_code}',1)">+</button>
+        </div>
+      </div>
+    `;
+  }).join("") + `<div style="font-weight:700;margin-top:8px;">Total: ${money(total)}</div>`;
+}
+
+function addToCart(item_code){
+  const row = MENU.find(x => x.item_code === item_code);
+  if(!row) return;
+  if(!CART[item_code]){
+    CART[item_code] = { item_code, qty: 0, rate: row.rate, name: row.display_name };
+  }
+  CART[item_code].qty += 1;
+  renderCart();
+}
+
+function chg(item_code, delta){
+  if(!CART[item_code]) return;
+  CART[item_code].qty += delta;
+  if(CART[item_code].qty <= 0) delete CART[item_code];
+  renderCart();
+}
+
+async function loadMenu(){
+  const res = await call("guest_ordering.api.get_menu", { token: TOKEN, lang: LANG });
+  if(res.message?.status !== "success"){
+    document.getElementById("menu").innerHTML = `<div class="alert alert-warning">${res.message?.message || "Failed to load menu"}</div>`;
+    return;
+  }
+  document.getElementById("title").innerText = `${res.message.data.restaurant} - Table ${res.message.data.table}`;
+  MENU = res.message.data.items || [];
+  renderMenu();
+  renderCart();
+}
+
+async function placeOrder(){
+  const items = Object.values(CART).map(it => ({ item_code: it.item_code, qty: it.qty }));
+  if(!items.length){
+    document.getElementById("result").innerHTML = `<div class="alert alert-info">Cart is empty</div>`;
+    return;
+  }
+  const client_order_id = (crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
+  const notes = document.getElementById("notes").value;
+
+  const res = await call("guest_ordering.api.place_order", {
+    token: TOKEN, lang: LANG, client_order_id, notes, items
+  });
+
+  if(res.message?.status === "success"){
+    CART = {};
+    renderCart();
+    document.getElementById("result").innerHTML =
+      `<div class="alert alert-success">Order placed: <b>${res.message.data.order_number}</b></div>`;
+  } else {
+    document.getElementById("result").innerHTML =
+      `<div class="alert alert-danger">${res.message?.message || "Failed to place order"}</div>`;
+  }
+}
+
+loadMenu();
+</script>
+{% endblock %}

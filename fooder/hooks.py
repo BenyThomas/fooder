@@ -213,3 +213,20 @@ app_license = "ztl"
 # auth_hooks = [
 # 	"fooder.auth.validate"
 # ]
+
+doctype_js = {
+    "Restaurant Table": "public/js/restaurant_table.js"
+}
+
+doc_events = {
+    "Restaurant Table": {
+        # generate QR after the table is created/saved
+        "after_insert": "guest_ordering.integrations.restaurant_table_events.ensure_qr_after_save",
+        "on_update": "guest_ordering.integrations.restaurant_table_events.ensure_qr_after_save",
+    }
+}
+# guest_ordering/hooks.py
+website_route_rules = [
+    {"from_route": "/fooder/<token>", "to_route": "order"},
+]
+
