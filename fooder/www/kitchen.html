@@ -9,6 +9,7 @@
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <div class="btn-group" role="group" aria-label="Status filters">
+        <button class="btn btn-default" data-status="Placed,Accepted,Preparing" onclick="setStatusFilter('Placed,Accepted,Preparing')">Not Ready</button>
         <button class="btn btn-default" data-status="Placed" onclick="setStatusFilter('Placed')">Placed</button>
         <button class="btn btn-default" data-status="Accepted" onclick="setStatusFilter('Accepted')">Accepted</button>
         <button class="btn btn-default" data-status="Preparing" onclick="setStatusFilter('Preparing')">Preparing</button>
@@ -31,7 +32,7 @@ const STATUS_COLORS = {
   Cancelled: 'label-danger',
 };
 
-let currentStatus = 'Placed';
+let currentStatus = 'Placed,Accepted,Preparing';
 let refreshTimer = null;
 
 function setStatusFilter(status){
