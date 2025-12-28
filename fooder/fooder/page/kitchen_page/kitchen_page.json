@@ -1,0 +1,29 @@
+{
+ "content": null,
+ "creation": "2025-12-28 10:53:21.255380",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2025-12-28 10:53:21.255380",
+ "modified_by": "Administrator",
+ "module": "Fooder",
+ "name": "kitchen-page",
+ "owner": "Administrator",
+ "page_name": "kitchen-page",
+ "roles": [
+  {
+   "role": "Hospitslity user"
+  },
+  {
+   "role": "Hotel Manager"
+  },
+  {
+   "role": "Restaurant Manager"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Kitchen Page"
+}
